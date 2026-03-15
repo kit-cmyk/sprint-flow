@@ -1,0 +1,427 @@
+// SprintFlow — Prisma Schema
+// SF-10: Organization, User, Membership
+// SF-11: Pod, Sprint, SprintTicket
+// SF-12: Developer, Allocation
+// SF-13: SupportTicket, TicketReply, AuditEvent
+// SF-14: PulseReport, Team
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────
+
+enum OrgPlan {
+  Starter
+  Business
+  Enterprise
+}
+
+enum OrgStatus {
+  active
+  suspended
+  trial
+}
+
+enum GlobalRole {
+  super_admin
+  org_admin
+  product_owner
+  developer
+}
+
+enum MemberRole {
+  admin
+  scrum_master
+  developer
+  client_viewer
+}
+
+enum MemberStatus {
+  active
+  invited
+  disabled
+}
+
+enum HealthStatus {
+  healthy
+  watch
+  at_risk
+}
+
+enum VelocityDirection {
+  up
+  down
+  stable
+}
+
+enum SprintTicketStatus {
+  done
+  in_progress
+  remaining
+}
+
+enum StoryType {
+  feature
+  bug
+  chore
+  spike
+}
+
+enum ActiveTicketStatus {
+  in_progress
+  in_review
+  qa
+  blocked
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
+
+enum WIPStatus {
+  healthy
+  over_limit
+}
+
+enum PRStatus {
+  open
+  merged
+  waiting_review
+}
+
+enum TicketCategory {
+  billing
+  integration
+  bug
+  feature_request
+  access
+  other
+}
+
+enum SupportTicketStatus {
+  open
+  in_progress
+  resolved
+  closed
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  critical
+}
+
+enum ReplyRole {
+  org_admin
+  super_admin
+}
+
+// ─── SF-10: Organization, User, Membership ──────────────────
+
+model Organization {
+  id           String      @id @default(cuid())
+  slug         String      @unique
+  name         String
+  logoInitials String
+  plan         OrgPlan     @default(Starter)
+  status       OrgStatus   @default(active)
+  seats        Int         @default(5)
+  seatsUsed    Int         @default(0)
+  mrr          Int         @default(0)
+  createdAt    DateTime    @default(now())
+  adminEmail   String
+
+  memberships    Membership[]
+  pods           Pod[]
+  teams          Team[]
+  supportTickets SupportTicket[]
+  auditEvents    AuditEvent[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String?
+  avatar       String?    // initials, e.g. "JM"
+  globalRole   GlobalRole @default(developer)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberships Membership[]
+  developer   Developer?
+}
+
+model Membership {
+  id         String       @id @default(cuid())
+  userId     String
+  orgId      String
+  role       MemberRole
+  status     MemberStatus @default(active)
+  lastActive String?      // human-readable; convert to DateTime in SF-23+
+
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+}
+
+// ─── SF-11: Pod, Sprint, SprintTicket ───────────────────────
+
+model Pod {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  name         String
+  client       String       // client name; link to Org member in a later task
+  orgId        String
+  healthScore  Int          @default(0)
+  healthStatus HealthStatus @default(healthy)
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  sprints     Sprint[]
+  allocations Allocation[]
+  teamPods    TeamPod[]
+}
+
+model Sprint {
+  id                  String            @id @default(cuid())
+  podId               String
+  name                String            // "Sprint 14"
+  startDate           DateTime
+  endDate             DateTime
+  sprintDay           Int               @default(1)
+  totalDays           Int               @default(10)
+  isCurrent           Boolean           @default(false)
+
+  // delivery metrics
+  completion          Int               @default(0)
+  expectedCompletion  Int               @default(0)
+  blockers            Int               @default(0)
+  carryoverRisk       Int               @default(0)
+  velocityDirection   VelocityDirection @default(stable)
+
+  // story point / task counters
+  committedSP         Int               @default(0)
+  committedTasks      Int               @default(0)
+  inProgressSP        Int               @default(0)
+  inProgressTasks     Int               @default(0)
+  remainingSP         Int               @default(0)
+  remainingTasks      Int               @default(0)
+  doneSP              Int               @default(0)
+  doneTasks           Int               @default(0)
+  remainingCapacitySP Int               @default(0)
+  storiesRemaining    Int               @default(0)
+  qaQueueCount        Int               @default(0)
+
+  // chart history — stored as JSON for efficient sparkline rendering
+  // velocityHistory:  Array<{ sprint: string; sp: number }>
+  // carryoverHistory: Array<{ sprint: string; pct: number }>
+  velocityHistory  Json @default("[]")
+  carryoverHistory Json @default("[]")
+
+  pod          Pod           @relation(fields: [podId], references: [id], onDelete: Cascade)
+  tickets      SprintTicket[]
+  pulseReports PulseReport[]
+}
+
+model SprintTicket {
+  id             String             @id // e.g. "MOM-101"; will hold Jira key post-SF-28
+  title          String
+  assigneeName   String             // resolved to Developer.name in SF-28+
+  storyPoints    Int                @default(0)
+  status         SprintTicketStatus
+  storyType      StoryType          @default(feature)
+  daysInProgress Int                @default(0)
+  blocked        Boolean            @default(false)
+  prLinked       Boolean            @default(false)
+  riskLevel      RiskLevel          @default(low)
+
+  sprintId    String
+  developerId String?
+
+  sprint    Sprint     @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  developer Developer? @relation(fields: [developerId], references: [id])
+}
+
+// ─── SF-12: Developer, Allocation ───────────────────────────
+
+model Developer {
+  id                   String    @id @default(cuid())
+  slug                 String    @unique
+  name                 String
+  role                 String    // "Backend Developer", "Full Stack Developer", etc.
+  avatar               String    // initials
+  userId               String?   @unique
+  currentSprint        String    @default("Sprint 1")
+
+  // capacity
+  totalAllocation      Int       @default(0)
+  activeTickets        Int       @default(0)
+  wipLimit             Int       @default(3)
+  wipStatus            WIPStatus @default(healthy)
+
+  // PR metrics
+  prsOpen              Int       @default(0)
+  prsWaitingReview     Int       @default(0)
+  avgPrReviewTime      Int       @default(0)
+
+  // blocker metrics
+  blockersOwned        Int       @default(0)
+  longestBlockedHours  Int       @default(0)
+
+  // workload signals
+  contextSwitchIndex   Float     @default(0)
+  activeProjectsCount  Int       @default(0)
+
+  // throughput
+  throughputThisSprint Int       @default(0)
+  throughput3SprintAvg Int       @default(0)
+  prsOpenedThisSprint  Int       @default(0)
+  prsMerged            Int       @default(0)
+  avgTimeToMerge       Int       @default(0)
+  reviewsDone          Int       @default(0)
+
+  // JSON arrays (chart data + signal strings)
+  // cycleTimeHistory: Array<{ sprint: string; devTime: number; teamAvg: number }>
+  // ticketAging:      Array<{ range: string; count: number; color: string }>
+  // riskSignals:      string[]
+  cycleTimeHistory Json @default("[]")
+  ticketAging      Json @default("[]")
+  riskSignals      Json @default("[]")
+
+  user           User?           @relation(fields: [userId], references: [id])
+  allocations    Allocation[]
+  sprintTickets  SprintTicket[]
+  prs            PR[]
+  teamDevelopers TeamDeveloper[]
+}
+
+model Allocation {
+  id          String @id @default(cuid())
+  developerId String
+  podId       String
+  percentage  Int
+
+  developer Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+  pod       Pod       @relation(fields: [podId], references: [id], onDelete: Cascade)
+
+  @@unique([developerId, podId])
+}
+
+model PR {
+  id               String   @id // "PR-412"
+  title            String
+  status           PRStatus
+  createdAtLabel   String   // "2d ago" — replace with DateTime in SF-23+
+  hoursSinceUpdate Int      @default(0)
+  developerId      String
+
+  developer Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+}
+
+// ─── SF-13: SupportTicket, TicketReply, AuditEvent ──────────
+
+model SupportTicket {
+  id                String              @id // "TKT-001"
+  subject           String
+  description       String
+  submittedBy       String              // email
+  submittedByName   String
+  submittedByAvatar String
+  category          TicketCategory
+  status            SupportTicketStatus
+  priority          TicketPriority
+  createdLabel      String              // "Mar 4, 2025" — convert to DateTime in SF-23+
+  lastUpdateLabel   String
+  orgId             String
+
+  org     Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  replies TicketReply[]
+}
+
+model TicketReply {
+  id           String    @id @default(cuid())
+  ticketId     String
+  author       String
+  authorAvatar String
+  role         ReplyRole
+  body         String
+  timestamp    String    // "Mar 5, 2025 10:30" — convert to DateTime in SF-23+
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model AuditEvent {
+  id          String @id @default(cuid())
+  actor       String
+  actorAvatar String
+  action      String
+  target      String
+  ip          String
+  timestamp   String // "Mar 5, 2025 09:14" — convert to DateTime in SF-23+
+  orgId       String
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+// ─── SF-14: PulseReport, Team ───────────────────────────────
+
+model PulseReport {
+  id       String @id @default(cuid())
+  sprintId String
+  week     String // "Week of Feb 10"
+  date     String // "Feb 14, 2025" — convert to DateTime in SF-23+
+  author   String
+  role     String // "Scrum Master"
+  summary  String
+
+  // highlights: string[]
+  // board: { todo: PulseTask[]; inProgress: PulseTask[]; done: PulseTask[] }
+  // PulseTask: { id: string; title: string; assignee: string }
+  highlights Json @default("[]")
+  board      Json @default("{}")
+
+  sprint Sprint @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String?
+  orgId       String
+
+  org            Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  teamDevelopers TeamDeveloper[]
+  teamPods       TeamPod[]
+}
+
+model TeamDeveloper {
+  teamId      String
+  developerId String
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  developer Developer @relation(fields: [developerId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, developerId])
+}
+
+model TeamPod {
+  teamId String
+  podId  String
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  pod  Pod  @relation(fields: [podId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, podId])
+}

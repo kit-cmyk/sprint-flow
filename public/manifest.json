@@ -1,0 +1,9 @@
+{
+  "name": "Assembled Systems - Executive Delivery Control",
+  "short_name": "Assembled Systems",
+  "description": "Cross-Pod Executive View for monitoring development pod health and delivery metrics.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117"
+}
