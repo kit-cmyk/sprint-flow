@@ -13,8 +13,9 @@ import {
   Line,
   ResponsiveContainer,
 } from "recharts"
-import { pods, getVelocityTrend, getAverageVelocity, getCurrentVelocity } from "@/lib/pod-data"
-import type { HealthStatus } from "@/lib/pod-data"
+import { getVelocityTrend, getAverageVelocity, getCurrentVelocity } from "@/lib/pod-data"
+import type { HealthStatus, PodData } from "@/lib/pod-data"
+import { usePods } from "@/lib/hooks/usePods"
 
 function getStatusColor(status: HealthStatus) {
   switch (status) {
@@ -91,7 +92,7 @@ function SparklineChart({
   )
 }
 
-function PodCard({ pod, basePath = "/pod" }: { pod: (typeof pods)[number]; basePath?: string }) {
+function PodCard({ pod, basePath = "/pod" }: { pod: PodData; basePath?: string }) {
   return (
     <Link href={`${basePath}/${pod.slug}`}>
     <Card className="group cursor-pointer border-border bg-card transition-all hover:border-primary/30 hover:bg-card/80">
@@ -184,13 +185,14 @@ export function PodHealthGrid({
   showAddPod = true,
   columns,
 }: {
-  filteredPods?: (typeof pods)[number][]
+  filteredPods?: PodData[]
   basePath?: string
   showAddPod?: boolean
   columns?: number
 } = {}) {
   const [addPodOpen, setAddPodOpen] = useState(false)
-  const displayPods = filteredPods ?? pods
+  const { pods: allPods } = usePods()
+  const displayPods = filteredPods ?? allPods
 
   const gridStyle = columns
     ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }

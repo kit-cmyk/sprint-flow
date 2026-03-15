@@ -12,10 +12,11 @@ import {
   Layers,
   Shuffle,
 } from "lucide-react"
-import { developers } from "@/lib/developer-data"
+import { useDevelopers } from "@/lib/hooks/useDevelopers"
 import { AddDeveloperDialog } from "@/components/developer/add-developer-dialog"
 
 export function AllDevelopersView() {
+  const { developers } = useDevelopers()
   const overLimitCount = developers.filter(
     (d) => d.wipStatus === "over-limit",
   ).length

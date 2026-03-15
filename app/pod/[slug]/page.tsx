@@ -2,8 +2,7 @@
 
 import { use } from "react"
 import { notFound } from "next/navigation"
-import { getPodBySlug } from "@/lib/pod-data"
-import { getDevelopersByPod } from "@/lib/developer-data"
+import { usePod } from "@/lib/hooks/usePods"
 import { PodDetailHeader } from "@/components/pod/pod-detail-header"
 import { PodTabs } from "@/components/pod/pod-tabs"
 
@@ -13,13 +12,10 @@ export default function PodDetailPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = use(params)
-  const pod = getPodBySlug(slug)
+  const { pod, developers, isLoading } = usePod(slug)
 
-  if (!pod) {
-    notFound()
-  }
-
-  const developers = getDevelopersByPod(pod.slug)
+  if (isLoading) return null
+  if (!pod) notFound()
 
   return (
     <div className="flex min-h-screen flex-col">

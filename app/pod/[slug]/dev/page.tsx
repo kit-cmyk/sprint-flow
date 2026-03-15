@@ -1,39 +1,23 @@
+"use client"
+
+import { use } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getPodBySlug, pods } from "@/lib/pod-data"
-import { getDevelopersByPod } from "@/lib/developer-data"
+import { usePod } from "@/lib/hooks/usePods"
 import { DevPicker } from "@/components/developer/dev-picker"
 
-export function generateStaticParams() {
-  return pods.map((pod) => ({ slug: pod.slug }))
-}
-
-export async function generateMetadata({
+export default function DevPickerPage({
   params,
 }: {
   params: Promise<{ slug: string }>
 }) {
-  const { slug } = await params
-  const pod = getPodBySlug(slug)
-  if (!pod) return { title: "Pod Not Found" }
-  return {
-    title: `${pod.name} Team | Assembled Systems`,
-    description: `Developer workload dashboard for ${pod.name}`,
-  }
-}
+  const { slug } = use(params)
+  const { pod, developers: devs, isLoading } = usePod(slug)
 
-export default async function DevPickerPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>
-}) {
-  const { slug } = await params
-  const pod = getPodBySlug(slug)
+  if (isLoading) return null
   if (!pod) notFound()
-
-  const devs = getDevelopersByPod(slug)
 
   return (
     <div className="flex min-h-screen flex-col">

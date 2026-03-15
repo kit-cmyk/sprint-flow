@@ -3,7 +3,7 @@
 import { use, useState } from "react"
 import { useRouter } from "next/navigation"
 import { notFound } from "next/navigation"
-import { getPodBySlug } from "@/lib/pod-data"
+import { usePod } from "@/lib/hooks/usePods"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
@@ -39,9 +39,10 @@ export default function NewPulsePage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = use(params)
-  const pod = getPodBySlug(slug)
+  const { pod, isLoading } = usePod(slug)
   const router = useRouter()
 
+  if (isLoading) return null
   if (!pod) notFound()
 
   const [title, setTitle] = useState("")

@@ -32,7 +32,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { pods } from "@/lib/pod-data"
+import { usePods } from "@/lib/hooks/usePods"
 
 type PulseStatus = "draft" | "published"
 
@@ -96,6 +96,7 @@ const initialPulses: PulseCheck[] = [
 
 export default function POPulsePage() {
   const { data: session } = useSession()
+  const { pods } = usePods()
   const assignedPods = pods.filter((p) =>
     session?.user?.assignedPodSlugs?.includes(p.slug)
   )

@@ -1,6 +1,8 @@
+"use client"
+
+import { use } from "react"
 import { notFound } from "next/navigation"
-import { pods } from "@/lib/pod-data"
-import { developers, getDeveloperBySlug } from "@/lib/developer-data"
+import { useDeveloper } from "@/lib/hooks/useDevelopers"
 import { DevHeader } from "@/components/developer/dev-header"
 import { WorkloadSnapshot } from "@/components/developer/workload-snapshot"
 import { DevFlowMetrics } from "@/components/developer/dev-flow-metrics"
@@ -9,43 +11,16 @@ import { PrActivity } from "@/components/developer/pr-activity"
 import { AllocationView } from "@/components/developer/allocation-view"
 import { RiskSignals } from "@/components/developer/risk-signals"
 
-export function generateStaticParams() {
-  const params: { slug: string; devSlug: string }[] = []
-  for (const pod of pods) {
-    for (const dev of developers) {
-      if (dev.allocations.some((a) => a.podName.toLowerCase().replace(/ /g, "-") === pod.slug)) {
-        params.push({ slug: pod.slug, devSlug: dev.slug })
-      }
-    }
-  }
-  return params
-}
-
-export async function generateMetadata({
+export default function DeveloperDetailPage({
   params,
 }: {
   params: Promise<{ slug: string; devSlug: string }>
 }) {
-  const { devSlug } = await params
-  const dev = getDeveloperBySlug(devSlug)
-  if (!dev) return { title: "Developer Not Found" }
-  return {
-    title: `${dev.name} - Workload Dashboard | Assembled Systems`,
-    description: `Individual workload, momentum, and risk signals for ${dev.name}`,
-  }
-}
+  const { slug, devSlug } = use(params)
+  const { developer: dev, isLoading } = useDeveloper(devSlug)
 
-export default async function DeveloperDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string; devSlug: string }>
-}) {
-  const { slug, devSlug } = await params
-  const dev = getDeveloperBySlug(devSlug)
-
-  if (!dev) {
-    notFound()
-  }
+  if (isLoading) return null
+  if (!dev) notFound()
 
   return (
     <div className="flex min-h-screen flex-col">

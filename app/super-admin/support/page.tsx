@@ -24,7 +24,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import {
-  allTickets,
   type SupportTicket,
   type TicketStatus,
   type TicketPriority,
@@ -33,7 +32,8 @@ import {
   ticketPriorityColors,
   ticketCategoryLabels,
 } from "@/lib/support-data"
-import { organizations } from "@/lib/organization-data"
+import { useSupport } from "@/lib/hooks/useSupport"
+import { useOrgs } from "@/lib/hooks/useOrgs"
 import { cn } from "@/lib/utils"
 
 const STATUS_OPTIONS: { value: TicketStatus | "all"; label: string; dot: string }[] = [
@@ -54,17 +54,27 @@ const PRIORITY_OPTIONS: { value: TicketPriority | "all"; label: string }[] = [
 
 export default function SuperAdminSupportPage() {
   const router = useRouter()
-  const [tickets, setTickets] = useState<SupportTicket[]>(allTickets)
-  const [selected, setSelected] = useState<SupportTicket | null>(allTickets[0] ?? null)
+  const { tickets: fetchedTickets } = useSupport()
+  const { orgs } = useOrgs()
+  const [localTickets, setLocalTickets] = useState<SupportTicket[]>([])
+  const tickets = localTickets.length > 0 ? localTickets : fetchedTickets
+  const [selected, setSelected] = useState<SupportTicket | null>(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all")
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | "all">("all")
   const [reply, setReply] = useState("")
   const threadRef = useRef<HTMLDivElement>(null)
 
+  // Auto-select first ticket once data loads
+  useEffect(() => {
+    if (!selected && fetchedTickets.length > 0) {
+      setSelected(fetchedTickets[0])
+    }
+  }, [fetchedTickets, selected])
+
   const orgMap = useMemo(
-    () => Object.fromEntries(organizations.map((o) => [o.slug, o.name])),
-    []
+    () => Object.fromEntries(orgs.map((o) => [o.slug, o.name])),
+    [orgs]
   )
 
   const filtered = useMemo(() => {
@@ -100,7 +110,8 @@ export default function SuperAdminSupportPage() {
   }, [selected?.id, selected?.replies.length])
 
   const updateTicket = (id: string, patch: Partial<SupportTicket>) => {
-    setTickets((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+    const base = localTickets.length > 0 ? localTickets : fetchedTickets
+    setLocalTickets(base.map((t) => (t.id === id ? { ...t, ...patch } : t)))
     setSelected((prev) => (prev?.id === id ? { ...prev, ...patch } : prev))
   }
 

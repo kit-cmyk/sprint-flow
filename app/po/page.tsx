@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { FileText } from "lucide-react"
-import { pods } from "@/lib/pod-data"
+import { usePods } from "@/lib/hooks/usePods"
 import { PodHealthGrid } from "@/components/pod-health-grid"
 
 const recentPulses = [
@@ -15,6 +15,7 @@ const recentPulses = [
 
 export default function PODashboard() {
   const { data: session } = useSession()
+  const { pods } = usePods()
   const assignedPods = pods.filter((p) =>
     session?.user?.assignedPodSlugs?.includes(p.slug)
   )

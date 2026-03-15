@@ -1,6 +1,9 @@
+"use client"
+
+import { use } from "react"
 import { notFound } from "next/navigation"
 import { Calendar, CheckCircle2, FileText } from "lucide-react"
-import { pulseReports } from "@/lib/pulse-data"
+import { usePulse } from "@/lib/hooks/usePulse"
 
 /* ── helpers ────────────────────────────────────────────── */
 function getInitials(name: string) {
@@ -20,24 +23,13 @@ function getAvatarColor(name: string) {
 }
 
 /* ── page ───────────────────────────────────────────────── */
-export async function generateStaticParams() {
-  return pulseReports.map((r) => ({ id: r.id }))
-}
+export default function PulseReportPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const { reports, isLoading } = usePulse()
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const report = pulseReports.find((r) => r.id === id)
-  return {
-    title: report ? `${report.week} | Pulse Checks` : "Pulse Check",
-  }
-}
-
-export default async function PulseReportPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const index = pulseReports.findIndex((r) => r.id === id)
-  if (index === -1) notFound()
-
-  const report = pulseReports[index]
+  if (isLoading) return null
+  const report = reports.find((r) => r.id === id)
+  if (!report) notFound()
 
   return (
     <div className="min-h-screen bg-background">

@@ -13,8 +13,8 @@ import {
   Minus,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { organizations, getTotalMRR, getTotalActiveDevelopers } from "@/lib/organization-data"
-import { pods } from "@/lib/pod-data"
+import { useOrgs } from "@/lib/hooks/useOrgs"
+import { usePods } from "@/lib/hooks/usePods"
 import { cn } from "@/lib/utils"
 
 type StatusFilter = "all" | "active" | "trial" | "suspended"
@@ -52,9 +52,11 @@ function VelocityIcon({ dir }: { dir: string }) {
 export default function SuperAdminDashboard() {
   const router = useRouter()
   const [filter, setFilter] = useState<StatusFilter>("all")
+  const { orgs: organizations } = useOrgs()
+  const { pods } = usePods()
 
-  const totalMRR = getTotalMRR()
-  const totalDevs = getTotalActiveDevelopers()
+  const totalMRR = organizations.reduce((s, o) => s + (o.mrr ?? 0), 0)
+  const totalDevs = organizations.reduce((s, o) => s + o.seatsUsed, 0)
   const atRiskPods = pods.filter((p) => p.healthScore < 60).length
   const totalOrgs = organizations.length
 
