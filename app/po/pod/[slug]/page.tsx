@@ -2,11 +2,11 @@
 
 import { use } from "react"
 import { notFound } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { getPodBySlug } from "@/lib/pod-data"
 import { getDevelopersByPod } from "@/lib/developer-data"
 import { PodDetailHeader } from "@/components/pod/pod-detail-header"
 import { PodTabs } from "@/components/pod/pod-tabs"
-import { poSession } from "@/lib/session-data"
 
 export default function POPodDetailPage({
   params,
@@ -14,9 +14,12 @@ export default function POPodDetailPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = use(params)
+  const { data: session, status } = useSession()
+
+  if (status === "loading") return null
 
   // PO can only access their assigned pods
-  if (!poSession.assignedPodSlugs?.includes(slug)) {
+  if (!session?.user?.assignedPodSlugs?.includes(slug)) {
     notFound()
   }
 

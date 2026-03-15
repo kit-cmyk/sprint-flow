@@ -31,12 +31,8 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react"
-import { poSession } from "@/lib/session-data"
+import { useSession } from "next-auth/react"
 import { pods } from "@/lib/pod-data"
-
-const assignedPods = pods.filter((p) =>
-  poSession.assignedPodSlugs?.includes(p.slug)
-)
 
 type PulseStatus = "draft" | "published"
 
@@ -99,6 +95,11 @@ const initialPulses: PulseCheck[] = [
 ]
 
 export default function POPulsePage() {
+  const { data: session } = useSession()
+  const assignedPods = pods.filter((p) =>
+    session?.user?.assignedPodSlugs?.includes(p.slug)
+  )
+
   const [pulses, setPulses] = useState<PulseCheck[]>(initialPulses)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<"all" | PulseStatus>("all")
@@ -108,7 +109,7 @@ export default function POPulsePage() {
 
   // Form state
   const [form, setForm] = useState({
-    podSlug: assignedPods[0]?.slug ?? "",
+    podSlug: "",
     sprint: "Sprint 14",
     summary: "",
     highlights: "",
@@ -139,7 +140,7 @@ export default function POPulsePage() {
       mood: form.mood,
     }
     setPulses((prev) => [newPulse, ...prev])
-    setForm({ podSlug: assignedPods[0]?.slug ?? "", sprint: "Sprint 14", summary: "", highlights: "", risks: "", mood: "neutral" })
+    setForm({ podSlug: assignedPods[0]?.slug ?? "", sprint: "Sprint 14", summary: "", highlights: "", risks: "", mood: "neutral" as PulseCheck["mood"] })
     setCreateOpen(false)
   }
 

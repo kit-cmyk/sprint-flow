@@ -1,15 +1,11 @@
 "use client"
 
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { FileText } from "lucide-react"
 import { pods } from "@/lib/pod-data"
-import { poSession } from "@/lib/session-data"
 import { PodHealthGrid } from "@/components/pod-health-grid"
-
-const assignedPods = pods.filter((p) =>
-  poSession.assignedPodSlugs?.includes(p.slug)
-)
 
 const recentPulses = [
   { id: "p1", pod: "Momentum Pod", sprint: "Sprint 14", status: "published", date: "Mar 4, 2025" },
@@ -18,13 +14,18 @@ const recentPulses = [
 ]
 
 export default function PODashboard() {
+  const { data: session } = useSession()
+  const assignedPods = pods.filter((p) =>
+    session?.user?.assignedPodSlugs?.includes(p.slug)
+  )
+
   return (
     <div className="flex min-h-screen flex-col">
       <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-balance text-lg font-semibold text-foreground md:text-xl">
-            Welcome back, {poSession.name.split(" ")[0]}
+            Welcome back, {session?.user?.name?.split(" ")[0]}
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
             Your assigned pods &middot; Sprint 14
